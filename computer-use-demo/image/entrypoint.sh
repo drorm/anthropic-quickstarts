@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+source ~/.bashrc
 ./start_all.sh
 ./novnc_startup.sh
 
