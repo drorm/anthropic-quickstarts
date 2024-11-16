@@ -29,7 +29,7 @@ from computer_use_demo.loop import (
 )
 from computer_use_demo.tools import ToolResult
 
-CONFIG_DIR = PosixPath("~/.anthropic").expanduser()
+CONFIG_DIR = PosixPath(os.getenv("ANTHROPIC_CONFIG_DIR", "~/.anthropic")).expanduser()
 API_KEY_FILE = CONFIG_DIR / "api_key"
 STREAMLIT_STYLE = """
 <style>
@@ -136,6 +136,7 @@ async def main():
         )
         st.text_area(
             "Custom System Prompt Suffix",
+            value=st.session_state.custom_system_prompt,
             key="custom_system_prompt",
             help="Additional instructions to append to the system prompt. see computer_use_demo/loop.py for the base system prompt.",
             on_change=lambda: save_to_storage(
