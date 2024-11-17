@@ -13,6 +13,8 @@ from functools import partial
 from pathlib import PosixPath
 from typing import cast
 
+from computer_use_demo.logger import SessionLogger
+
 import httpx
 import streamlit as st
 from anthropic import RateLimitError
@@ -55,6 +57,8 @@ class Sender(StrEnum):
 
 
 def setup_state():
+    if "logger" not in st.session_state:
+        st.session_state.logger = SessionLogger()
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "api_key" not in st.session_state:
@@ -193,6 +197,9 @@ async def main():
 
         # render past chats
         if new_message:
+            # Create new log file for the session
+            st.session_state.logger.start_session(new_message)
+
             st.session_state.messages.append(
                 {
                     "role": Sender.USER,
@@ -217,7 +224,7 @@ async def main():
                 model=st.session_state.model,
                 provider=st.session_state.provider,
                 messages=st.session_state.messages,
-                output_callback=partial(_render_message, Sender.BOT),
+                output_callback=lambda x: _handle_output(x, st.session_state.logger),
                 tool_output_callback=partial(
                     _tool_output_callback, tool_state=st.session_state.tools
                 ),
@@ -341,6 +348,28 @@ def _render_error(error: Exception):
         body += f"\n\n```{lines}```"
     save_to_storage(f"error_{datetime.now().timestamp()}.md", body)
     st.error(f"**{error.__class__.__name__}**\n\n{body}", icon=":material/error:")
+
+
+def _handle_output(message: str | BetaContentBlockParam | ToolResult, logger: SessionLogger):
+    """Handle output from the agent, including logging"""
+    _render_message(Sender.BOT, message)
+
+    # Convert message to string for logging if needed
+    if isinstance(message, (BetaContentBlockParam, ToolResult)):
+        if isinstance(message, dict):
+            if message["type"] == "text":
+                log_text = message["text"]
+            elif message["type"] == "tool_use":
+                log_text = f'Tool Use: {message["name"]}\nInput: {message["input"]}'
+            else:
+                log_text = str(message)
+        else:
+            log_text = str(message)
+    else:
+        log_text = str(message)
+
+    # Append to log file
+    logger.append_response(log_text)
 
 
 def _render_message(
