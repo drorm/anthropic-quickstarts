@@ -197,8 +197,12 @@ async def main():
 
         # render past chats
         if new_message:
-            # Create new log file for the session
-            st.session_state.logger.start_session(new_message)
+            if not st.session_state.messages:
+                # First message - create new log file
+                st.session_state.logger.start_session(new_message)
+            else:
+                # Subsequent message - append to existing log
+                st.session_state.logger.append_user_message(new_message)
 
             st.session_state.messages.append(
                 {
@@ -355,16 +359,15 @@ def _handle_output(message: str | BetaContentBlockParam | ToolResult, logger: Se
     _render_message(Sender.BOT, message)
 
     # Convert message to string for logging if needed
-    if isinstance(message, (BetaContentBlockParam, ToolResult)):
-        if isinstance(message, dict):
-            if message["type"] == "text":
-                log_text = message["text"]
-            elif message["type"] == "tool_use":
-                log_text = f'Tool Use: {message["name"]}\nInput: {message["input"]}'
-            else:
-                log_text = str(message)
+    if isinstance(message, dict):
+        if message.get("type") == "text":
+            log_text = message["text"]
+        elif message.get("type") == "tool_use":
+            log_text = f'Tool Use: {message["name"]}\nInput: {message["input"]}'
         else:
             log_text = str(message)
+    elif isinstance(message, ToolResult):
+        log_text = str(message)
     else:
         log_text = str(message)
 
